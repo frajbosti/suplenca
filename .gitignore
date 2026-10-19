@@ -1,0 +1,26 @@
+# Python (backend) 
+# virtualno okolje - vsak razvijalec ga ustvari sam
+.venv/
+venv/
+# prevedene Python datoteke, nastanejo samodejno
+__pycache__/
+*.pyc
+
+# Node / React (frontend) 
+# knjižnice, ki jih namesti "npm install"
+node_modules/
+# zgrajena različica aplikacije
+dist/
+build/
+
+# nastavitve in gesla 
+# .env vsebuje gesla za bazo in skrivni ključ za JWT
+.env
+
+# sistem in orodja
+# skrite datoteke Windows
+Thumbs.db
+desktop.ini
+# varnostne kopije draw.io
+*.bkp
+.$*
