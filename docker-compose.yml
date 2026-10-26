@@ -20,6 +20,14 @@ services:
       - "8000:8000"                 # API dosegljiv na http://localhost:8000
     depends_on:
       - baza                        # najprej zažene bazo, nato backend
+    
+  # storitev "frontend" – React + Vite (ADR 0001)
+  frontend:
+    build: ./frontend               # sliko zgradi iz frontend/Dockerfile
+    ports:
+      - "5173:5173"                 # aplikacija dosegljiva na http://localhost:5173
+    depends_on:
+      - backend                     # najprej zažene backend
 
 # poimenovan prostor za shranjevanje podatkov baze (upravlja ga Docker)
 volumes:

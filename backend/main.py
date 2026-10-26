@@ -7,11 +7,20 @@ from pydantic import BaseModel                 # opis podatkov, ki jih pošlje f
 from sqlalchemy import text
 from baza import povezava, Seja, Osnova
 from modeli import Uporabnik
+from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
 
 # ključ, s katerim backend podpiše žeton (samo backend ga pozna)
 SKRIVNI_KLJUC = "suplenca-skrivni-kljuc"
 
 aplikacija = FastAPI(title="Suplenca API")
+
+# CORS: dovoli klice iz frontenda, ki teče na drugem naslovu (ADR 0001)
+aplikacija.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],   # naslov frontenda
+    allow_methods=["*"],                       # vse metode (GET, POST …)
+    allow_headers=["*"],                       # vse glave (npr. žeton)
+)
 
 # ob zagonu ustvari tabele iz modeli.py, če še ne obstajajo
 Osnova.metadata.create_all(povezava)
