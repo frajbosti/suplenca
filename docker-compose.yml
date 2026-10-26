@@ -1,0 +1,17 @@
+# docker-compose.yml – opis vseh delov aplikacije za zagon z enim ukazom (ADR 0004)
+
+services:
+  # storitev "baza" – podatkovna baza MySQL (ADR 0003)
+  baza:
+    image: mysql:8.4                # uradna slika MySQL z Docker Huba, različica 8.4 (dolgoročna podpora)
+    environment:                    # nastavitve, ki jih MySQL prebere ob prvem zagonu
+      MYSQL_ROOT_PASSWORD: test123  # geslo za skrbnika (root)
+      MYSQL_DATABASE: suplenca      # ime baze, ki se ustvari samodejno
+      MYSQL_USER: suplenca          # uporabnik, s katerim se bo povezal backend
+      MYSQL_PASSWORD: test123       # geslo tega uporabnika
+    volumes:
+      - podatki_baze:/var/lib/mysql # podatki se shranijo izven kontejnerja in ostanejo po ponovnem zagonu
+
+# poimenovan prostor za shranjevanje podatkov baze (upravlja ga Docker)
+volumes:
+  podatki_baze:
