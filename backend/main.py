@@ -1,18 +1,52 @@
 # main.py – vstopna točka backenda (FastAPI)
 
-from fastapi import FastAPI        # ogrodje za REST API
-from sqlalchemy import text        # text() omogoča izvedbo navadnega SQL ukaza
-from baza import povezava          # povezava z bazo iz baza.py
+import bcrypt                                  # preverjanje gesla
+import jwt                                     # izdelava žetona JWT
+from fastapi import FastAPI, HTTPException     # HTTPException = vrnemo napako s kodo
+from pydantic import BaseModel                 # opis podatkov, ki jih pošlje frontend
+from sqlalchemy import text
+from baza import povezava, Seja, Osnova
+from modeli import Uporabnik
 
-# ustvari aplikacijo; samodejna dokumentacija bo na /docs (ADR 0002)
+# ključ, s katerim backend podpiše žeton (samo backend ga pozna)
+SKRIVNI_KLJUC = "suplenca-skrivni-kljuc"
+
 aplikacija = FastAPI(title="Suplenca API")
 
+# ob zagonu ustvari tabele iz modeli.py, če še ne obstajajo
+Osnova.metadata.create_all(povezava)
 
-# preizkusni klic GET / – preveri, ali backend doseže bazo
+
+# preizkusni klic GET / – preveri, ali backend doseže bazo (#3)
 @aplikacija.get("/")
 def preveri_bazo():
-    # odpre povezavo, izvede najpreprostejši SQL in povezavo ob koncu zapre (with)
     with povezava.connect() as p:
         p.execute(text("SELECT 1"))
-    # FastAPI slovar samodejno pretvori v JSON
     return {"stanje": "backend deluje, baza dosegljiva"}
+
+
+# podatki, ki jih pošlje prijavni obrazec
+class PodatkiPrijave(BaseModel):
+    email: str
+    geslo: str
+
+
+# POST /prijava – preveri e-pošto in geslo ter vrne žeton (US-01)
+@aplikacija.post("/prijava")
+def prijava(podatki: PodatkiPrijave):
+    # poišče uporabnika z vpisano e-pošto
+    seja = Seja()
+    uporabnik = seja.query(Uporabnik).filter(Uporabnik.email == podatki.email).first()
+    seja.close()
+
+    # uporabnik ne obstaja ali geslo ni pravilno → enako sporočilo za oba primera (US-01)
+    if uporabnik is None or not bcrypt.checkpw(podatki.geslo.encode(), uporabnik.geslo_hash.encode()):
+        raise HTTPException(status_code=401, detail="Napačna e-pošta ali geslo")
+
+    # deaktiviran uporabnik se ne more prijaviti (US-01)
+    if not uporabnik.aktiven:
+        raise HTTPException(status_code=403, detail="Uporabnik je deaktiviran")
+
+    # žeton vsebuje id in vlogo; frontend ga pošilja pri vsakem naslednjem klicu
+    zeton = jwt.encode({"id": uporabnik.id, "vloga": uporabnik.vloga}, SKRIVNI_KLJUC, algorithm="HS256")
+    return {"zeton": zeton, "vloga": uporabnik.vloga}
