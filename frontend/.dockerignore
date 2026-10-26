@@ -1,0 +1,2 @@
+# node_modules z Windows se ne kopira v kontejner – tam se knjižnice namestijo posebej (npm install)
+node_modules
