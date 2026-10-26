@@ -12,6 +12,14 @@ services:
     volumes:
       - podatki_baze:/var/lib/mysql # podatki se shranijo izven kontejnerja in ostanejo po ponovnem zagonu
 
+  # storitev "backend" – REST API v FastAPI (ADR 0002)
+  backend:
+    build: ./backend                # sliko zgradi iz backend/Dockerfile
+    ports:
+      - "8000:8000"                 # API dosegljiv na http://localhost:8000
+    depends_on:
+      - baza                        # najprej zažene bazo, nato backend
+
 # poimenovan prostor za shranjevanje podatkov baze (upravlja ga Docker)
 volumes:
   podatki_baze:

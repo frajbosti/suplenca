@@ -1,0 +1,5 @@
+fastapi        # ogrodje za REST API (ADR 0002)
+uvicorn        # strežnik, ki zažene FastAPI aplikacijo
+sqlalchemy     # ORM – delo z bazo prek Pythona (ADR 0003, dokument 04)
+pymysql        # gonilnik, s katerim se Python poveže z MySQL
+cryptography   # MySQL 8 pri prijavi zahteva šifriranje gesla, pymysql ga brez tega ne zna
