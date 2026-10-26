@@ -14,6 +14,7 @@ services:
 
   # storitev "backend" – REST API v FastAPI (ADR 0002)
   backend:
+    restart: on-failure             # če baza ob zagonu še ni pripravljena, se backend zažene znova
     build: ./backend                # sliko zgradi iz backend/Dockerfile
     ports:
       - "8000:8000"                 # API dosegljiv na http://localhost:8000
