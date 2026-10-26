@@ -8,6 +8,7 @@ from sqlalchemy import text
 from baza import povezava, Seja, Osnova
 from modeli import Uporabnik
 from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
+from fastapi import FastAPI, HTTPException, Header   # Header = branje glave zahtevka (žeton)
 
 # ključ, s katerim backend podpiše žeton (samo backend ga pozna)
 SKRIVNI_KLJUC = "suplenca-skrivni-kljuc"
@@ -59,3 +60,21 @@ def prijava(podatki: PodatkiPrijave):
     # žeton vsebuje id in vlogo; frontend ga pošilja pri vsakem naslednjem klicu
     zeton = jwt.encode({"id": uporabnik.id, "vloga": uporabnik.vloga}, SKRIVNI_KLJUC, algorithm="HS256")
     return {"zeton": zeton, "vloga": uporabnik.vloga}
+
+# prebere žeton iz glave "Authorization: Bearer <žeton>" in vrne njegovo vsebino (id, vloga)
+def preberi_zeton(authorization):
+    try:
+        zeton = authorization.replace("Bearer ", "")
+        # preveri podpis; če je žeton spremenjen ali ponarejen, sproži napako
+        return jwt.decode(zeton, SKRIVNI_KLJUC, algorithms=["HS256"])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Niste prijavljeni")
+
+# GET /dostop/{stran} – ali sme prijavljeni uporabnik odpreti stran (US-01)
+@aplikacija.get("/dostop/{stran}")
+def preveri_dostop(stran: str, authorization: str = Header()):
+    uporabnik = preberi_zeton(authorization)
+    # stran pripada vlogi z enakim imenom (npr. /organizator → organizator)
+    if uporabnik["vloga"] != stran:
+        raise HTTPException(status_code=403, detail="Nimate dostopa")
+    return {"dostop": True}
