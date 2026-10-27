@@ -15,3 +15,19 @@ class Uporabnik(Osnova):
     geslo_hash = Column(String(100))              # ne geslo, ampak njegova bcrypt zgoščena vrednost
     vloga = Column(String(20))                    # administrator, organizator, ucitelj, dijak
     aktiven = Column(Boolean, default=True)       # False = se ne more prijaviti
+
+    # tabela oddelek (dokument 03), npr. "3. b"
+class Oddelek(Osnova):
+    __tablename__ = "oddelek"
+
+    id = Column(Integer, primary_key=True)
+    oznaka = Column(String(10), unique=True)      # oznaka se ne sme ponoviti
+
+
+# tabela predmet (dokument 03), npr. "PRO" – Programiranje
+class Predmet(Osnova):
+    __tablename__ = "predmet"
+
+    id = Column(Integer, primary_key=True)
+    kratica = Column(String(10), unique=True)
+    naziv = Column(String(100))
