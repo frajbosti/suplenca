@@ -291,3 +291,47 @@ def dodaj_uro(podatki: PodatkiUre, poverilnice=Depends(varnost)):
     seja.commit()
     seja.close()
     return {"sporocilo": "Ura dodana"}
+
+
+
+# GET /urnik/{oddelek_id} – vse ure izbranega oddelka za tedensko tabelo (US-02, WF-02)
+@aplikacija.get("/urnik/{oddelek_id}")
+def urnik_oddelka(oddelek_id: int, poverilnice=Depends(varnost)):
+    samo_administrator(poverilnice)
+    seja = Seja()
+    ure = seja.query(UraUrnika).filter(UraUrnika.oddelek_id == oddelek_id).all()
+
+    # namesto številk (id) vrnemo ime predmeta in priimek učitelja, kot na WF-02 ("Matematika · Zupan")
+    rezultat = []
+    for ura in ure:
+        predmet = seja.get(Predmet, ura.predmet_id)
+        ucitelj = seja.get(Uporabnik, ura.ucitelj_id)
+        rezultat.append({
+            "dan_v_tednu": ura.dan_v_tednu,
+            "solska_ura": ura.solska_ura,
+            "predmet": predmet.naziv,
+            "ucitelj": ucitelj.priimek,
+        })
+    seja.close()
+    return rezultat
+
+# GET /urnik/{oddelek_id} – vse ure izbranega oddelka za tedensko tabelo (US-02, WF-02)
+@aplikacija.get("/urnik/{oddelek_id}")
+def urnik_oddelka(oddelek_id: int, poverilnice=Depends(varnost)):
+    samo_administrator(poverilnice)
+    seja = Seja()
+    ure = seja.query(UraUrnika).filter(UraUrnika.oddelek_id == oddelek_id).all()
+
+    # namesto številk (id) vrnemo ime predmeta in priimek učitelja, kot na WF-02 ("Matematika · Zupan")
+    rezultat = []
+    for ura in ure:
+        predmet = seja.get(Predmet, ura.predmet_id)
+        ucitelj = seja.get(Uporabnik, ura.ucitelj_id)
+        rezultat.append({
+            "dan_v_tednu": ura.dan_v_tednu,
+            "solska_ura": ura.solska_ura,
+            "predmet": predmet.naziv,
+            "ucitelj": ucitelj.priimek,
+        })
+    seja.close()
+    return rezultat

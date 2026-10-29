@@ -14,6 +14,8 @@ function Urnik() {
   // vrednosti obrazca in sporočilo po shranjevanju
   const [ura, nastaviUro] = useState({});
   const [sporocilo, nastaviSporocilo] = useState("");
+    // ure izbranega oddelka za tedensko tabelo
+  const [urnik, nastaviUrnik] = useState([]);
 
   const glava = {
     "Content-Type": "application/json",
@@ -32,6 +34,19 @@ function Urnik() {
     nastaviUro({ ...ura, [polje]: vrednost });
   }
 
+    // naloži urnik izbranega oddelka (GET /urnik/{id})
+  function naloziUrnik(oddelekId) {
+    fetch("http://localhost:8000/urnik/" + oddelekId, { headers: glava })
+      .then((o) => o.json())
+      .then(nastaviUrnik);
+  }
+
+  // besedilo za eno celico tabele: "Predmet · Priimek" ali prazno, če ure ni
+  function celica(dan, solskaUra) {
+    const najdena = urnik.find((u) => u.dan_v_tednu === dan && u.solska_ura === solskaUra);
+    return najdena ? najdena.predmet + " · " + najdena.ucitelj : "";
+  }
+
   // gumb + Dodaj uro: pošlje uro backendu in prikaže odgovor ali opozorilo
   async function dodaj(dogodek) {
     dogodek.preventDefault();
@@ -41,7 +56,9 @@ function Urnik() {
       body: JSON.stringify(ura),
     });
     const podatki = await odgovor.json();
-    nastaviSporocilo(odgovor.ok ? podatki.sporocilo : "Opozorilo: " + podatki.detail);
+        nastaviSporocilo(odgovor.ok ? podatki.sporocilo : "Opozorilo: " + podatki.detail);
+    // po uspešnem vnosu osveži tabelo
+    if (odgovor.ok) naloziUrnik(ura.oddelek_id);
   }
 
   return (
@@ -50,7 +67,7 @@ function Urnik() {
 
       {/* required = brskalnik ne pusti oddaje, dokler polje ni izbrano (US-02) */}
       <form onSubmit={dodaj}>
-        <select required onChange={(e) => spremeni("oddelek_id", e.target.value)}>
+        <select required onChange={(e) => { spremeni("oddelek_id", e.target.value); naloziUrnik(e.target.value); }}>
           <option value="">Oddelek</option>
           {oddelki.map((o) => <option key={o.id} value={o.id}>{o.oznaka}</option>)}
         </select>
@@ -81,6 +98,23 @@ function Urnik() {
       </form>
 
       {sporocilo && <p>{sporocilo}</p>}
+            {/* tedenska tabela: vrstice = šolske ure, stolpci = dnevi (US-02, WF-02) */}
+        <table border="1">
+            <thead>
+            <tr>
+                <th>Ura</th>
+                {DNEVI.map((dan) => <th key={dan}>{dan}</th>)}
+            </tr>
+            </thead>
+            <tbody>
+            {URE.map((u) => (
+                <tr key={u}>
+                <td>{u}.</td>
+                {DNEVI.map((dan, i) => <td key={dan}>{celica(i + 1, u)}</td>)}
+                </tr>
+            ))}
+            </tbody>
+        </table>
     </div>
   );
 }
