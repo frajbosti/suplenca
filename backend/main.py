@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer                        # branje žetona 
 from pydantic import BaseModel                 # opis podatkov, ki jih pošlje frontend
 from sqlalchemy import text
 from baza import povezava, Seja, Osnova
-from modeli import Uporabnik, Oddelek, Predmet
+from modeli import Uporabnik, Oddelek, Predmet, UraUrnika
 from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
 
 # ključ, s katerim backend podpiše žeton (samo backend ga pozna)
@@ -239,3 +239,55 @@ def izbrisi_ucitelja(id: int, poverilnice=Depends(varnost)):
     seja.commit()
     seja.close()
     return {"sporocilo": "Učitelj izbrisan"}
+
+# ---------- URNIK (US-02) ----------
+
+# vsa polja razen učilnice so obvezna – če kakšno manjka, FastAPI sam vrne napako 422 (US-02)
+class PodatkiUre(BaseModel):
+    oddelek_id: int
+    predmet_id: int
+    ucitelj_id: int
+    dan_v_tednu: int
+    solska_ura: int
+    ucilnica: str = ""
+
+
+# POST /urnik – doda uro v urnik, če učitelj in oddelek ob tem času še nimata pouka
+@aplikacija.post("/urnik")
+def dodaj_uro(podatki: PodatkiUre, poverilnice=Depends(varnost)):
+    samo_administrator(poverilnice)
+    seja = Seja()
+
+    # ali ima učitelj ob istem dnevu in uri že drugo uro (US-02)
+    ucitelj_zaseden = seja.query(UraUrnika).filter(
+        UraUrnika.ucitelj_id == podatki.ucitelj_id,
+        UraUrnika.dan_v_tednu == podatki.dan_v_tednu,
+        UraUrnika.solska_ura == podatki.solska_ura,
+    ).first()
+
+    # ali ima oddelek ob istem dnevu in uri že drugo uro (US-02)
+    oddelek_zaseden = seja.query(UraUrnika).filter(
+        UraUrnika.oddelek_id == podatki.oddelek_id,
+        UraUrnika.dan_v_tednu == podatki.dan_v_tednu,
+        UraUrnika.solska_ura == podatki.solska_ura,
+    ).first()
+
+    if ucitelj_zaseden is not None:
+        seja.close()
+        raise HTTPException(status_code=400, detail="Učitelj ima ob tem času že pouk – ure ni mogoče shraniti")
+    if oddelek_zaseden is not None:
+        seja.close()
+        raise HTTPException(status_code=400, detail="Oddelek ima ob tem času že drugo uro – ure ni mogoče shraniti")
+
+    # termin je prost → shrani uro
+    seja.add(UraUrnika(
+        oddelek_id=podatki.oddelek_id,
+        predmet_id=podatki.predmet_id,
+        ucitelj_id=podatki.ucitelj_id,
+        dan_v_tednu=podatki.dan_v_tednu,
+        solska_ura=podatki.solska_ura,
+        ucilnica=podatki.ucilnica,
+    ))
+    seja.commit()
+    seja.close()
+    return {"sporocilo": "Ura dodana"}

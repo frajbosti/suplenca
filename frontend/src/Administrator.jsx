@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Seznam from "./Seznam";
+import Urnik from "./Urnik";
 
 function Administrator() {
   // katera stran iz menija je izbrana
@@ -9,13 +10,15 @@ function Administrator() {
 
   return (
     <div>
-      {/* meni (WF-02); Urnik dodava pri #8 */}
+      {/* meni (WF-02) */}
       <p>
+        <button onClick={() => nastaviIzbiro("urnik")}>Urnik</button>
         <button onClick={() => nastaviIzbiro("oddelki")}>Oddelki</button>
         <button onClick={() => nastaviIzbiro("predmeti")}>Predmeti</button>
         <button onClick={() => nastaviIzbiro("ucitelji")}>Učitelji</button>
       </p>
 
+      {izbira === "urnik" && <Urnik />}
       {izbira === "oddelki" && <Seznam naslov="Oddelki" pot="oddelki" polja={["oznaka"]} />}
       {izbira === "predmeti" && <Seznam naslov="Predmeti" pot="predmeti" polja={["kratica", "naziv"]} />}
       {izbira === "ucitelji" && <Seznam naslov="Učitelji" pot="ucitelji" polja={["ime", "priimek", "email", "geslo"]} />}
