@@ -1,7 +1,8 @@
 # Tabele v bazi, opisane kot Python razredi (SQLAlchemy)
 
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from baza import Osnova
+
 
 
 # tabela uporabnik (dokument 03) + polje aktiven za deaktivacijo (US-01)
@@ -31,3 +32,17 @@ class Predmet(Osnova):
     id = Column(Integer, primary_key=True)
     kratica = Column(String(10), unique=True)
     naziv = Column(String(100))
+
+# tabela ura_urnika (dokument 03) – ena vrstica = ena ura v tedenskem urniku oddelka
+class UraUrnika(Osnova):
+    __tablename__ = "ura_urnika"
+
+    id = Column(Integer, primary_key=True)
+    oddelek_id = Column(Integer, ForeignKey("oddelek.id"))     # tuji ključ: ura mora pripadati obstoječemu oddelku
+    predmet_id = Column(Integer, ForeignKey("predmet.id"))
+    ucitelj_id = Column(Integer, ForeignKey("uporabnik.id"))   # učitelj je uporabnik z vlogo ucitelj
+    dan_v_tednu = Column(Integer)                              # 1 = ponedeljek … 5 = petek
+    solska_ura = Column(Integer)                               # 1. … 8. šolska ura
+    ucilnica = Column(String(10))                              # npr. R12 (WF-03, US-06)
+
+    
