@@ -27,6 +27,15 @@ function DnevniPregled() {
       .then(nastaviKandidate);
   }
 
+    // gumb Ura odpade: status ure postane "odpadla", nato osveži pregled dneva
+  async function uraOdpade() {
+    await fetch("http://localhost:8000/nadomescanja/" + izbrana.id + "/odpade", {
+      method: "PUT",
+      headers: glava,
+    });
+    naloziDan(datum);
+  }
+
   // število nepokritih ur (WF-04: "Nepokrite ure: 3")
   const nepokrite = ure.filter((u) => u.status === "nepokrita").length;
 
@@ -74,7 +83,10 @@ function DnevniPregled() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table>          
+          {/* ni nobenega kandidata (US-04) */}
+          {kandidati.length === 0 && <p>Ni prostega učitelja</p>}
+          <button onClick={uraOdpade}>Ura odpade</button>
         </div>
       )}
     </div>
