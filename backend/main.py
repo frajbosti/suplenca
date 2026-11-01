@@ -525,3 +525,14 @@ def predlog_kandidatov(nadomescanje_id: int, poverilnice=Depends(varnost)):
     # (False se razvrsti pred True, zato "not")
     kandidati.sort(key=lambda k: (not k["isti_predmet"], not k["ura_odpadla"], k["suplenc_ta_teden"]))
     return kandidati
+
+# PUT /nadomescanja/{id}/odpade – organizator označi, da izpadla ura odpade (US-04)
+@aplikacija.put("/nadomescanja/{id}/odpade")
+def ura_odpade(id: int, poverilnice=Depends(varnost)):
+    samo_organizator(poverilnice)
+    seja = Seja()
+    n = seja.get(Nadomescanje, id)
+    n.status = "odpadla"
+    seja.commit()
+    seja.close()
+    return {"sporocilo": "Ura odpade"}
