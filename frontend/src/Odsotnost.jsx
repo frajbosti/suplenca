@@ -9,6 +9,7 @@ function Odsotnost() {
   const [ucitelji, nastaviUcitelje] = useState([]);   // za spustni meni
   const [odsotnost, nastaviOdsotnost] = useState({}); // vrednosti obrazca
   const [sporocilo, nastaviSporocilo] = useState("");
+  const [izpadle, nastaviIzpadle] = useState([]);    // izpadle ure, ki jih vrne backend
 
   const glava = {
     "Content-Type": "application/json",
@@ -35,6 +36,8 @@ function Odsotnost() {
     });
     const podatki = await odgovor.json();
     nastaviSporocilo(odgovor.ok ? podatki.sporocilo : "Opozorilo: " + podatki.detail);
+        // po uspešnem shranjevanju prikaže izpadle ure; ob napaki seznam pobriše
+    nastaviIzpadle(odgovor.ok ? podatki.izpadle_ure : []);
   }
 
   return (
@@ -62,6 +65,29 @@ function Odsotnost() {
       </form>
 
       {sporocilo && <p>{sporocilo}</p>}
+            {/* izpadle ure po shranjevanju odsotnosti (WF-03, US-03) */}
+      {sporocilo === "Odsotnost shranjena" && (
+        <div>
+          <p>Izpadle ure (izračunano iz urnika): {izpadle.length}</p>
+          <table border="1">
+            <thead>
+              <tr><th>Datum</th><th>Ura</th><th>Oddelek</th><th>Predmet</th><th>Učilnica</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {izpadle.map((i) => (
+                <tr key={i.datum + "-" + i.solska_ura}>
+                  <td>{i.datum}</td>
+                  <td>{i.solska_ura}.</td>
+                  <td>{i.oddelek}</td>
+                  <td>{i.predmet}</td>
+                  <td>{i.ucilnica}</td>
+                  <td>{i.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

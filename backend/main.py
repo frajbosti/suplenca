@@ -7,9 +7,9 @@ from fastapi.security import HTTPBearer                        # branje žetona 
 from pydantic import BaseModel                 # opis podatkov, ki jih pošlje frontend
 from sqlalchemy import text
 from baza import povezava, Seja, Osnova
-from modeli import Uporabnik, Oddelek, Predmet, UraUrnika, Odsotnost
+from modeli import Uporabnik, Oddelek, Predmet, UraUrnika, Odsotnost, ProstDan, Nadomescanje
 from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
-from datetime import date                      # tip za datum (od, do)
+from datetime import date, timedelta           # tip za datum; timedelta = premik za en dan
 
 
 # ključ, s katerim backend podpiše žeton (samo backend ga pozna)
@@ -359,7 +359,7 @@ class PodatkiOdsotnosti(BaseModel):
     navodila: str = ""
 
 
-# POST /odsotnosti – shrani odsotnost, če se ne prekriva z obstoječo odsotnostjo istega učitelja
+# POST /odsotnosti – shrani odsotnost in iz urnika ustvari izpadle ure (US-03)
 @aplikacija.post("/odsotnosti")
 def dodaj_odsotnost(podatki: PodatkiOdsotnosti, poverilnice=Depends(varnost)):
     samo_organizator(poverilnice)
@@ -376,13 +376,44 @@ def dodaj_odsotnost(podatki: PodatkiOdsotnosti, poverilnice=Depends(varnost)):
         seja.close()
         raise HTTPException(status_code=400, detail="Učitelj ima v tem obdobju že vneseno odsotnost – odsotnost ni shranjena")
 
-    seja.add(Odsotnost(
+    odsotnost = Odsotnost(
         ucitelj_id=podatki.ucitelj_id,
         datum_od=podatki.datum_od,
         datum_do=podatki.datum_do,
         razlog=podatki.razlog,
         navodila=podatki.navodila,
-    ))
+    )
+    seja.add(odsotnost)
+    seja.commit()                              # po shranjevanju dobi odsotnost svoj id
+
+    # seznam dni brez pouka (US-03)
+    prosti_dnevi = [p.datum for p in seja.query(ProstDan).all()]
+
+    # gre čez vse dni od – do in za vsak dan poišče ure učitelja v urniku
+    izpadle = []
+    datum = podatki.datum_od
+    while datum <= podatki.datum_do:
+        if datum not in prosti_dnevi:
+            # weekday(): ponedeljek = 0, zato +1, da se ujema z dan_v_tednu v urniku (ponedeljek = 1)
+            ure = seja.query(UraUrnika).filter(
+                UraUrnika.ucitelj_id == podatki.ucitelj_id,
+                UraUrnika.dan_v_tednu == datum.weekday() + 1,
+            ).order_by(UraUrnika.solska_ura).all()
+
+            for ura in ure:
+                # vsaka izpadla ura postane nadomeščanje s statusom "nepokrita"
+                seja.add(Nadomescanje(odsotnost_id=odsotnost.id, ura_urnika_id=ura.id, datum=datum, status="nepokrita"))
+                # podatki za prikaz po WF-03
+                izpadle.append({
+                    "datum": datum,
+                    "solska_ura": ura.solska_ura,
+                    "oddelek": seja.get(Oddelek, ura.oddelek_id).oznaka,
+                    "predmet": seja.get(Predmet, ura.predmet_id).naziv,
+                    "ucilnica": ura.ucilnica,
+                    "status": "nepokrita",
+                })
+        datum = datum + timedelta(days=1)      # naslednji dan
+
     seja.commit()
     seja.close()
-    return {"sporocilo": "Odsotnost shranjena"}
+    return {"sporocilo": "Odsotnost shranjena", "izpadle_ure": izpadle}
