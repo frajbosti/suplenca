@@ -39,7 +39,7 @@ Potrebno: [Docker Desktop](https://www.docker.com/products/docker-desktop/) in G
    ```
    docker compose up -d --build
    ```
-3. Ob prvem zagonu vnesi testne uporabnike (geslo za MySQL: `test123`):
+3. Ob prvem zagonu vnesi testne uporabnike in dneve brez pouka (geslo za MySQL: `test123`):
    ```
    docker compose exec baza mysql -u suplenca -p suplenca
    ```
@@ -51,6 +51,12 @@ Potrebno: [Docker Desktop](https://www.docker.com/products/docker-desktop/) in G
    ('Janez', 'Novak', 'novak@sola.si', '$2b$12$kK44OnKnxjq4N3kL1eboe.QpTVOTHAKIzl7eokHDARj0cCq8JJxVO', 'ucitelj', 1),
    ('Dejan', 'Dijak', 'dijak@sola.si', '$2b$12$kK44OnKnxjq4N3kL1eboe.QpTVOTHAKIzl7eokHDARj0cCq8JJxVO', 'dijak', 1),
    ('Bojan', 'Bivsi', 'bivsi@sola.si', '$2b$12$kK44OnKnxjq4N3kL1eboe.QpTVOTHAKIzl7eokHDARj0cCq8JJxVO', 'ucitelj', 0);
+
+   -- dnevi brez pouka (prazniki, počitnice): zanje se izpadle ure ne ustvarijo
+   INSERT INTO prost_dan (datum, opis) VALUES
+   ('2026-12-25', 'Božič'),
+   ('2026-12-26', 'Dan samostojnosti in enotnosti'),
+   ('2027-01-01', 'Novo leto');
    exit
    ```
 4. Odpri:

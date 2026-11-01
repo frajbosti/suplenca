@@ -56,4 +56,26 @@ class Odsotnost(Osnova):
     razlog = Column(String(50))               # npr. Bolniška (WF-03)
     navodila = Column(String(500))            # navodila za nadomeščajočega učitelja (US-06)
 
+    # tabela prost_dan – dnevi brez pouka (prazniki, počitnice); zanje se izpadle ure ne ustvarijo (US-03)
+class ProstDan(Osnova):
+    __tablename__ = "prost_dan"
+
+    id = Column(Integer, primary_key=True)
+    datum = Column(Date, unique=True)
+    opis = Column(String(100))                 # npr. Božič
+
+
+# tabela nadomescanje (dokument 03) – ena vrstica = ena izpadla ura na določen datum in njena rešitev
+class Nadomescanje(Osnova):
+    __tablename__ = "nadomescanje"
+
+    id = Column(Integer, primary_key=True)
+    odsotnost_id = Column(Integer, ForeignKey("odsotnost.id"))
+    ura_urnika_id = Column(Integer, ForeignKey("ura_urnika.id"))
+    datum = Column(Date)
+    nadomescajoci_id = Column(Integer, ForeignKey("uporabnik.id"))   # prazno, dokler ura ni pokrita (US-05)
+    vrsta = Column(String(30))                 # strokovno / po navodilih (US-04)
+    placana = Column(Boolean)                  # plačana ali fond ur (US-05)
+    status = Column(String(20))                # nepokrita, potrjena, odpadla
+
     
