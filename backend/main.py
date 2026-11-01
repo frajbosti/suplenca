@@ -7,8 +7,10 @@ from fastapi.security import HTTPBearer                        # branje žetona 
 from pydantic import BaseModel                 # opis podatkov, ki jih pošlje frontend
 from sqlalchemy import text
 from baza import povezava, Seja, Osnova
-from modeli import Uporabnik, Oddelek, Predmet, UraUrnika
+from modeli import Uporabnik, Oddelek, Predmet, UraUrnika, Odsotnost
 from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
+from datetime import date                      # tip za datum (od, do)
+
 
 # ključ, s katerim backend podpiše žeton (samo backend ga pozna)
 SKRIVNI_KLJUC = "suplenca-skrivni-kljuc"
@@ -198,7 +200,10 @@ class PodatkiUcitelja(BaseModel):
 
 @aplikacija.get("/ucitelji")
 def seznam_uciteljev(poverilnice=Depends(varnost)):
-    samo_administrator(poverilnice)
+    uporabnik = preberi_zeton(poverilnice)
+    # seznam učiteljev potrebujeta administrator (US-02) in organizator (US-03)
+    if uporabnik["vloga"] not in ["administrator", "organizator"]:
+        raise HTTPException(status_code=403, detail="Nimate dostopa")
     seja = Seja()
     ucitelji = seja.query(Uporabnik).filter(Uporabnik.vloga == "ucitelj").all()
     seja.close()
@@ -335,3 +340,49 @@ def urnik_oddelka(oddelek_id: int, poverilnice=Depends(varnost)):
         })
     seja.close()
     return rezultat
+
+# ---------- ODSOTNOSTI (US-03) ----------
+
+# preveri, ali je prijavljeni uporabnik organizator nadomeščanj
+def samo_organizator(poverilnice):
+    uporabnik = preberi_zeton(poverilnice)
+    if uporabnik["vloga"] != "organizator":
+        raise HTTPException(status_code=403, detail="Nimate dostopa")
+
+
+# učitelj, od, do in razlog so obvezni (US-03); navodila niso
+class PodatkiOdsotnosti(BaseModel):
+    ucitelj_id: int
+    datum_od: date
+    datum_do: date
+    razlog: str
+    navodila: str = ""
+
+
+# POST /odsotnosti – shrani odsotnost, če se ne prekriva z obstoječo odsotnostjo istega učitelja
+@aplikacija.post("/odsotnosti")
+def dodaj_odsotnost(podatki: PodatkiOdsotnosti, poverilnice=Depends(varnost)):
+    samo_organizator(poverilnice)
+    seja = Seja()
+
+    # dve obdobji se prekrivata, če se prvo začne pred koncem drugega in konča po začetku drugega
+    prekrivanje = seja.query(Odsotnost).filter(
+        Odsotnost.ucitelj_id == podatki.ucitelj_id,
+        Odsotnost.datum_od <= podatki.datum_do,
+        Odsotnost.datum_do >= podatki.datum_od,
+    ).first()
+
+    if prekrivanje is not None:
+        seja.close()
+        raise HTTPException(status_code=400, detail="Učitelj ima v tem obdobju že vneseno odsotnost – odsotnost ni shranjena")
+
+    seja.add(Odsotnost(
+        ucitelj_id=podatki.ucitelj_id,
+        datum_od=podatki.datum_od,
+        datum_do=podatki.datum_do,
+        razlog=podatki.razlog,
+        navodila=podatki.navodila,
+    ))
+    seja.commit()
+    seja.close()
+    return {"sporocilo": "Odsotnost shranjena"}

@@ -1,6 +1,6 @@
 # Tabele v bazi, opisane kot Python razredi (SQLAlchemy)
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date
 from baza import Osnova
 
 
@@ -44,5 +44,16 @@ class UraUrnika(Osnova):
     dan_v_tednu = Column(Integer)                              # 1 = ponedeljek … 5 = petek
     solska_ura = Column(Integer)                               # 1. … 8. šolska ura
     ucilnica = Column(String(10))                              # npr. R12 (WF-03, US-06)
+
+    # tabela odsotnost (dokument 03) – ena vrstica = ena odsotnost učitelja v obdobju od – do
+class Odsotnost(Osnova):
+    __tablename__ = "odsotnost"
+
+    id = Column(Integer, primary_key=True)
+    ucitelj_id = Column(Integer, ForeignKey("uporabnik.id"))
+    datum_od = Column(Date)                   # "od" in "do" sta v MySQL rezervirani besedi
+    datum_do = Column(Date)
+    razlog = Column(String(50))               # npr. Bolniška (WF-03)
+    navodila = Column(String(500))            # navodila za nadomeščajočega učitelja (US-06)
 
     
