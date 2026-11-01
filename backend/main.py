@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer                        # branje žetona 
 from pydantic import BaseModel                 # opis podatkov, ki jih pošlje frontend
 from sqlalchemy import text
 from baza import povezava, Seja, Osnova
-from modeli import Uporabnik, Oddelek, Predmet, UraUrnika, Odsotnost, ProstDan, Nadomescanje
+from modeli import Uporabnik, Oddelek, Predmet, UraUrnika, Odsotnost, ProstDan, Nadomescanje, OdsotnostOddelka
 from fastapi.middleware.cors import CORSMiddleware   # dovoljenje za klice iz frontenda
 from datetime import date, timedelta           # tip za datum; timedelta = premik za en dan
 
@@ -417,3 +417,111 @@ def dodaj_odsotnost(podatki: PodatkiOdsotnosti, poverilnice=Depends(varnost)):
     seja.commit()
     seja.close()
     return {"sporocilo": "Odsotnost shranjena", "izpadle_ure": izpadle}
+
+# ---------- DNEVNI PREGLED IN PREDLOG KANDIDATOV (US-04, WF-04) ----------
+
+# GET /dnevni-pregled/{datum} – vse izpadle ure izbranega dne
+@aplikacija.get("/dnevni-pregled/{datum}")
+def dnevni_pregled(datum: date, poverilnice=Depends(varnost)):
+    samo_organizator(poverilnice)
+    seja = Seja()
+    nadomescanja = seja.query(Nadomescanje).filter(Nadomescanje.datum == datum).all()
+
+    rezultat = []
+    for n in nadomescanja:
+        ura = seja.get(UraUrnika, n.ura_urnika_id)
+        odsotni = seja.get(Uporabnik, ura.ucitelj_id)
+        # nadomeščajoči je prazen, dokler ura ni pokrita
+        nadomesca = seja.get(Uporabnik, n.nadomescajoci_id).priimek if n.nadomescajoci_id else "–"
+        rezultat.append({
+            "id": n.id,
+            "solska_ura": ura.solska_ura,
+            "oddelek": seja.get(Oddelek, ura.oddelek_id).oznaka,
+            "predmet": seja.get(Predmet, ura.predmet_id).naziv,
+            "odsoten": odsotni.priimek,
+            "nadomesca": nadomesca,
+            "status": n.status,
+        })
+    seja.close()
+    # urejeno po šolski uri
+    rezultat.sort(key=lambda r: r["solska_ura"])
+    return rezultat
+
+
+# GET /kandidati/{nadomescanje_id} – razvrščen seznam primernih učiteljev za izpadlo uro (US-04)
+@aplikacija.get("/kandidati/{nadomescanje_id}")
+def predlog_kandidatov(nadomescanje_id: int, poverilnice=Depends(varnost)):
+    samo_organizator(poverilnice)
+    seja = Seja()
+
+    n = seja.get(Nadomescanje, nadomescanje_id)
+    izpadla = seja.get(UraUrnika, n.ura_urnika_id)
+    dan = izpadla.dan_v_tednu
+    solska_ura = izpadla.solska_ura
+
+    # oddelki, ki so ta dan odsotni – njihovim učiteljem ura odpade
+    odsotni_oddelki = [o.oddelek_id for o in seja.query(OdsotnostOddelka).filter(OdsotnostOddelka.datum == n.datum).all()]
+
+    # tekoči teden: od ponedeljka do nedelje okoli datuma izpadle ure
+    ponedeljek = n.datum - timedelta(days=n.datum.weekday())
+    nedelja = ponedeljek + timedelta(days=6)
+
+    kandidati = []
+    for u in seja.query(Uporabnik).filter(Uporabnik.vloga == "ucitelj", Uporabnik.aktiven == True).all():
+
+        # 1. odsoten učitelj ne more nadomeščati (US-04)
+        odsoten = seja.query(Odsotnost).filter(
+            Odsotnost.ucitelj_id == u.id,
+            Odsotnost.datum_od <= n.datum,
+            Odsotnost.datum_do >= n.datum,
+        ).first()
+        if odsoten is not None:
+            continue
+
+        # 2. učitelj s poukom ob tej uri ni prost – razen če je njegov oddelek odsoten (ura mu je odpadla)
+        pouk = seja.query(UraUrnika).filter(
+            UraUrnika.ucitelj_id == u.id,
+            UraUrnika.dan_v_tednu == dan,
+            UraUrnika.solska_ura == solska_ura,
+        ).first()
+        ura_odpadla = pouk is not None and pouk.oddelek_id in odsotni_oddelki
+        if pouk is not None and not ura_odpadla:
+            continue
+
+        # vrsta: isti predmet, če ga učitelj po urniku kjerkoli poučuje
+        isti_predmet = seja.query(UraUrnika).filter(
+            UraUrnika.ucitelj_id == u.id,
+            UraUrnika.predmet_id == izpadla.predmet_id,
+        ).first() is not None
+
+        # plačljivost: plačana, če je ura pred prvo ali po zadnji uri učitelja ta dan (dokument 01)
+        ure_dneva = [x.solska_ura for x in seja.query(UraUrnika).filter(
+            UraUrnika.ucitelj_id == u.id,
+            UraUrnika.dan_v_tednu == dan,
+        ).all()]
+        placana = len(ure_dneva) == 0 or solska_ura < min(ure_dneva) or solska_ura > max(ure_dneva)
+
+        # število potrjenih suplenc v tekočem tednu
+        suplenc = seja.query(Nadomescanje).filter(
+            Nadomescanje.nadomescajoci_id == u.id,
+            Nadomescanje.status == "potrjena",
+            Nadomescanje.datum >= ponedeljek,
+            Nadomescanje.datum <= nedelja,
+        ).count()
+
+        kandidati.append({
+            "id": u.id,
+            "ucitelj": u.priimek + " " + u.ime,
+            "isti_predmet": isti_predmet,
+            "ura_odpadla": ura_odpadla,
+            "vrsta": "strokovno" if isti_predmet else "po navodilih",
+            "placana": placana,
+            "suplenc_ta_teden": suplenc,
+        })
+
+    seja.close()
+
+    # razvrstitev (US-04): najprej isti predmet, nato ura odpadla, nato manj suplenc
+    # (False se razvrsti pred True, zato "not")
+    kandidati.sort(key=lambda k: (not k["isti_predmet"], not k["ura_odpadla"], k["suplenc_ta_teden"]))
+    return kandidati

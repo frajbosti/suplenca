@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Prijava from "./Prijava";
 import Administrator from "./Administrator";
-import Odsotnost from "./Odsotnost";
+import Organizator from "./Organizator";
 
 function App() {
   const vloga = localStorage.getItem("vloga");
@@ -53,7 +53,7 @@ function App() {
       <p>Prijavljen: {vloga} | <button onClick={odjava}>Odjava</button></p>
             {/* vsaka vloga dobi svojo stran; ostale vloge zaenkrat samo naslov */}
       {vloga === "administrator" && <Administrator />}
-      {vloga === "organizator" && <Odsotnost />}
+      {vloga === "organizator" && <Organizator />}
       {vloga !== "administrator" && vloga !== "organizator" && <h1>Začetna stran – {vloga}</h1>}
     </div>
   );

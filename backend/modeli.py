@@ -78,4 +78,14 @@ class Nadomescanje(Osnova):
     placana = Column(Boolean)                  # plačana ali fond ur (US-05)
     status = Column(String(20))                # nepokrita, potrjena, odpadla
 
+# tabela odsotnost_oddelka – oddelek ta dan nima pouka (ekskurzija, športni dan);
+# njegovim učiteljem ura odpade in imajo prednost pri suplenci (US-04)
+class OdsotnostOddelka(Osnova):
+    __tablename__ = "odsotnost_oddelka"
+
+    id = Column(Integer, primary_key=True)
+    oddelek_id = Column(Integer, ForeignKey("oddelek.id"))
+    datum = Column(Date)
+    razlog = Column(String(100))               # npr. Ekskurzija
+
     
