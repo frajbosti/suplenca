@@ -7,6 +7,7 @@ function DnevniPregled() {
   const [ure, nastaviUre] = useState([]);              // izpadle ure izbranega dne
   const [izbrana, nastaviIzbrano] = useState(null);    // ura, za katero prikazujemo kandidate
   const [kandidati, nastaviKandidate] = useState([]);
+  const [sporocilo, nastaviSporocilo] = useState("");  // opozorilo ob potrditvi
 
   const glava = { Authorization: "Bearer " + localStorage.getItem("zeton") };
 
@@ -22,6 +23,7 @@ function DnevniPregled() {
   // klik na nepokrito uro: naloži razvrščen seznam kandidatov
   function izberiUro(ura) {
     nastaviIzbrano(ura);
+    nastaviSporocilo("");
     fetch("http://localhost:8000/kandidati/" + ura.id, { headers: glava })
       .then((o) => o.json())
       .then(nastaviKandidate);
@@ -33,6 +35,22 @@ function DnevniPregled() {
       method: "PUT",
       headers: glava,
     });
+    naloziDan(datum);
+  }
+
+    // gumb Potrdi: izpadlo uro dodeli izbranemu kandidatu (US-05)
+  async function potrdi(kandidat) {
+    const odgovor = await fetch("http://localhost:8000/nadomescanja/" + izbrana.id + "/potrdi", {
+      method: "PUT",
+      headers: { ...glava, "Content-Type": "application/json" },   // žeton + oblika podatkov
+      body: JSON.stringify({ ucitelj_id: kandidat.id, vrsta: kandidat.vrsta, placana: kandidat.placana }),
+    });
+    const podatki = await odgovor.json();
+    if (!odgovor.ok) {
+      nastaviSporocilo("Opozorilo: " + podatki.detail);
+      return;
+    }
+    // uspešno → osveži pregled dneva (ura je potrjena, vidi se nadomeščajoči)
     naloziDan(datum);
   }
 
@@ -70,7 +88,7 @@ function DnevniPregled() {
           <h3>Predlog kandidatov – {izbrana.solska_ura}. ura, {izbrana.oddelek}, {izbrana.predmet}</h3>
           <table border="1">
             <thead>
-              <tr><th>#</th><th>Učitelj</th><th>Vrsta suplence</th><th>Plačana</th><th>Suplenc ta teden</th></tr>
+              <tr><th>#</th><th>Učitelj</th><th>Vrsta suplence</th><th>Plačana</th><th>Suplenc ta teden</th><th></th></tr>
             </thead>
             <tbody>
               {kandidati.map((k, i) => (
@@ -80,11 +98,13 @@ function DnevniPregled() {
                   <td>{k.vrsta}</td>
                   <td>{k.placana ? "da" : "ne – fond"}</td>
                   <td>{k.suplenc_ta_teden}</td>
+                  <td><button onClick={() => potrdi(k)}>Potrdi</button></td>
                 </tr>
               ))}
             </tbody>
           </table>          
           {/* ni nobenega kandidata (US-04) */}
+          {sporocilo && <p>{sporocilo}</p>}
           {kandidati.length === 0 && <p>Ni prostega učitelja</p>}
           <button onClick={uraOdpade}>Ura odpade</button>
         </div>
