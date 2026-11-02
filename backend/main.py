@@ -536,3 +536,40 @@ def ura_odpade(id: int, poverilnice=Depends(varnost)):
     seja.commit()
     seja.close()
     return {"sporocilo": "Ura odpade"}
+
+    # ---------- POTRDITEV SUPLENCE (US-05) ----------
+
+# izbrani kandidat; vrsto in plačljivost je izračunal backend pri predlogu kandidatov
+class PodatkiPotrditve(BaseModel):
+    ucitelj_id: int
+    vrsta: str
+    placana: bool
+
+
+# PUT /nadomescanja/{id}/potrdi – dodeli izpadlo uro izbranemu učitelju (US-05)
+@aplikacija.put("/nadomescanja/{id}/potrdi")
+def potrdi_suplenco(id: int, podatki: PodatkiPotrditve, poverilnice=Depends(varnost)):
+    samo_organizator(poverilnice)
+    seja = Seja()
+    n = seja.get(Nadomescanje, id)
+    solska_ura = seja.get(UraUrnika, n.ura_urnika_id).solska_ura
+
+    # učitelju ni mogoče dodeliti dveh suplenc ob isti uri (US-05)
+    potrjene = seja.query(Nadomescanje).filter(
+        Nadomescanje.nadomescajoci_id == podatki.ucitelj_id,
+        Nadomescanje.datum == n.datum,
+        Nadomescanje.status == "potrjena",
+    ).all()
+    for p in potrjene:
+        if seja.get(UraUrnika, p.ura_urnika_id).solska_ura == solska_ura:
+            seja.close()
+            raise HTTPException(status_code=400, detail="Učitelj ima ob tej uri že suplenco")
+
+    # ura je dodeljena izbranemu učitelju in označena za obračun
+    n.nadomescajoci_id = podatki.ucitelj_id
+    n.vrsta = podatki.vrsta
+    n.placana = podatki.placana
+    n.status = "potrjena"
+    seja.commit()
+    seja.close()
+    return {"sporocilo": "Suplenca potrjena"}
