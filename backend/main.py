@@ -573,3 +573,40 @@ def potrdi_suplenco(id: int, podatki: PodatkiPotrditve, poverilnice=Depends(varn
     seja.commit()
     seja.close()
     return {"sporocilo": "Suplenca potrjena"}
+
+    # ---------- MOJE SUPLENCE (US-06, WF-05) ----------
+
+# GET /moje-suplence – potrjene suplence prijavljenega učitelja od danes naprej
+@aplikacija.get("/moje-suplence")
+def moje_suplence(poverilnice=Depends(varnost)):
+    uporabnik = preberi_zeton(poverilnice)
+    if uporabnik["vloga"] != "ucitelj":
+        raise HTTPException(status_code=403, detail="Nimate dostopa")
+
+    seja = Seja()
+    # id učitelja vzamemo iz žetona, zato vidi samo svoje suplence (US-06)
+    suplence = seja.query(Nadomescanje).filter(
+        Nadomescanje.nadomescajoci_id == uporabnik["id"],
+        Nadomescanje.status == "potrjena",
+        Nadomescanje.datum >= date.today(),
+    ).all()
+
+    rezultat = []
+    for n in suplence:
+        ura = seja.get(UraUrnika, n.ura_urnika_id)
+        odsotnost = seja.get(Odsotnost, n.odsotnost_id)
+        rezultat.append({
+            "datum": n.datum,
+            "solska_ura": ura.solska_ura,
+            "oddelek": seja.get(Oddelek, ura.oddelek_id).oznaka,
+            "predmet": seja.get(Predmet, ura.predmet_id).naziv,
+            "ucilnica": ura.ucilnica,
+            "vrsta": n.vrsta,
+            "placana": n.placana,
+            "navodila": odsotnost.navodila,      # navodila odsotnega učitelja (US-06)
+        })
+    seja.close()
+
+    # urejeno po datumu, nato po šolski uri (US-06)
+    rezultat.sort(key=lambda r: (r["datum"], r["solska_ura"]))
+    return rezultat
