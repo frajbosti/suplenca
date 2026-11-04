@@ -5,6 +5,7 @@ import Prijava from "./Prijava";
 import Administrator from "./Administrator";
 import Organizator from "./Organizator";
 import MojeSuplence from "./MojeSuplence";
+import SpremembeUrnika from "./SpremembeUrnika";
 
 function App() {
   const vloga = localStorage.getItem("vloga");
@@ -48,15 +49,15 @@ function App() {
     );
   }
 
-  // začetna stran vloge – vsebino dodava pri naslednjih zgodbah
+  
   return (
     <div>
       <p>Prijavljen: {vloga} | <button onClick={odjava}>Odjava</button></p>
-      {/* vsaka vloga dobi svojo stran; ostale vloge zaenkrat samo naslov */}
+      {/* vsaka vloga dobi svojo stran */}
       {vloga === "administrator" && <Administrator />}
       {vloga === "organizator" && <Organizator />}
       {vloga === "ucitelj" && <MojeSuplence />}
-      {vloga === "dijak" && <h1>Začetna stran – dijak</h1>}
+      {vloga === "dijak" && <SpremembeUrnika />}
     </div>
   );
 }

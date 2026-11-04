@@ -57,6 +57,9 @@ Potrebno: [Docker Desktop](https://www.docker.com/products/docker-desktop/) in G
    ('2026-12-25', 'Božič'),
    ('2026-12-26', 'Dan samostojnosti in enotnosti'),
    ('2027-01-01', 'Novo leto');
+   
+   -- ko administrator vnese oddelke: testnemu dijaku dodeli oddelek (id iz tabele oddelek)
+   UPDATE uporabnik SET oddelek_id = 1 WHERE email = 'dijak@sola.si';
    exit
    ```
 4. Odpri:

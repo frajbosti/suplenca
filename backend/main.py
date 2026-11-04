@@ -610,3 +610,40 @@ def moje_suplence(poverilnice=Depends(varnost)):
     # urejeno po datumu, nato po šolski uri (US-06)
     rezultat.sort(key=lambda r: (r["datum"], r["solska_ura"]))
     return rezultat
+
+# ---------- SPREMEMBE URNIKA ZA DIJAKA (US-07, WF-06) ----------
+
+# GET /spremembe/{datum} – potrjene suplence in odpadle ure v oddelku prijavljenega dijaka
+@aplikacija.get("/spremembe/{datum}")
+def spremembe_urnika(datum: date, poverilnice=Depends(varnost)):
+    uporabnik = preberi_zeton(poverilnice)
+    if uporabnik["vloga"] != "dijak":
+        raise HTTPException(status_code=403, detail="Nimate dostopa")
+
+    seja = Seja()
+    # oddelek dijaka preberemo iz baze po id iz žetona – vidi samo svoj oddelek (US-07)
+    dijak = seja.get(Uporabnik, uporabnik["id"])
+
+    # za dijaka sta spremembi samo potrjena suplenca in ura, ki odpade
+    nadomescanja = seja.query(Nadomescanje).filter(
+        Nadomescanje.datum == datum,
+        Nadomescanje.status.in_(["potrjena", "odpadla"]),
+    ).all()
+
+    rezultat = []
+    for n in nadomescanja:
+        ura = seja.get(UraUrnika, n.ura_urnika_id)
+        if ura.oddelek_id != dijak.oddelek_id:
+            continue                                      # drug oddelek – preskoči
+        rezultat.append({
+            "solska_ura": ura.solska_ura,
+            "predmet": seja.get(Predmet, ura.predmet_id).naziv,
+            # pri odpadli uri nadomeščajočega ni
+            "nadomesca": seja.get(Uporabnik, n.nadomescajoci_id).priimek if n.status == "potrjena" else "",
+            "ucilnica": ura.ucilnica,
+            "odpade": n.status == "odpadla",
+            # razloga odsotnosti namenoma ne vrnemo (US-07)
+        })
+    seja.close()
+    rezultat.sort(key=lambda r: r["solska_ura"])
+    return rezultat
