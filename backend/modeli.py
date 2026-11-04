@@ -16,6 +16,7 @@ class Uporabnik(Osnova):
     geslo_hash = Column(String(100))              # ne geslo, ampak njegova bcrypt zgoščena vrednost
     vloga = Column(String(20))                    # administrator, organizator, ucitelj, dijak
     aktiven = Column(Boolean, default=True)       # False = se ne more prijaviti
+    oddelek_id = Column(Integer, ForeignKey("oddelek.id"))   # samo dijak: njegov oddelek (dokument 03, US-07)
 
     # tabela oddelek (dokument 03), npr. "3. b"
 class Oddelek(Osnova):
